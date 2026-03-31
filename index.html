@@ -346,7 +346,7 @@
 <div id="layout-root">
   <div id="hud">
     <button type="button" id="theme-btn" title="Toggle light / dark">LIGHT</button>
-    <div class="hud-item gold"><span>⬡</span><span>GOLD</span><span class="val" id="hud-gold">150</span></div>
+    <div class="hud-item gold"><span>⬡</span><span>GOLD</span><span class="val" id="hud-gold">195</span></div>
     <div class="hud-item lives"><span>♥</span><span>LIVES</span><span class="val" id="hud-lives">20</span></div>
     <div class="hud-item"><span>◈</span><span>WAVE</span><span class="val" id="hud-wave">0 ∞</span></div>
     <div class="hud-item" style="font-size:9px;opacity:0.85"><span>⌗</span><span class="val" id="hud-map" style="min-width:52px">—</span></div>
@@ -773,21 +773,24 @@ const enemySpriteCache = {};
 
 // ── WAVE SCRIPT ─────────────────────────────────────────────────
 const WAVE_SCRIPT = [
-  [{ t:'grunt', n:10 }, { t:'runner', n:4 }],
-  [{ t:'grunt', n:8 }, { t:'fast', n:6 }, { t:'skimmer', n:4 }],
-  [{ t:'brute', n:4 }, { t:'grunt', n:10 }, { t:'runner', n:6 }],
-  [{ t:'tank', n:2 }, { t:'grunt', n:12 }, { t:'fast', n:8 }],
-  [{ t:'armored', n:3 }, { t:'phantom', n:6 }, { t:'skimmer', n:8 }],
-  [{ t:'regen', n:4 }, { t:'grunt', n:14 }, { t:'brute', n:4 }],
-  [{ t:'flier', n:8 }, { t:'darter', n:6 }, { t:'grunt', n:10 }],
-  [{ t:'boss', n:1 }, { t:'grunt', n:14 }, { t:'runner', n:8 }],
-  [{ t:'tank', n:3 }, { t:'brood', n:4 }, { t:'fast', n:12 }],
-  [{ t:'wraith', n:6 }, { t:'bulwark', n:1 }, { t:'grunt', n:12 }],
-  [{ t:'warchief', n:1 }, { t:'armored', n:4 }, { t:'flier', n:10 }],
-  [{ t:'boss', n:2 }, { t:'tank', n:3 }, { t:'regen', n:6 }, { t:'phantom', n:10 }],
-  [{ t:'bulwark', n:2 }, { t:'brood', n:5 }, { t:'darter', n:12 }, { t:'runner', n:10 }],
-  [{ t:'boss', n:2 }, { t:'wraith', n:8 }, { t:'brute', n:8 }, { t:'skimmer', n:14 }],
-  [{ t:'warchief', n:2 }, { t:'tank', n:4 }, { t:'armored', n:6 }, { t:'fast', n:16 }],
+  [{ t:'grunt', n:4 }],
+  [{ t:'grunt', n:5 }, { t:'runner', n:2 }],
+  [{ t:'grunt', n:7 }, { t:'fast', n:4 }],
+  [{ t:'grunt', n:8 }, { t:'skimmer', n:4 }],
+  [{ t:'grunt', n:8 }, { t:'runner', n:4 }, { t:'phantom', n:2 }],
+  [{ t:'brute', n:2 }, { t:'grunt', n:8 }, { t:'fast', n:4 }],
+  [{ t:'grunt', n:10 }, { t:'tank', n:1 }, { t:'runner', n:4 }],
+  [{ t:'armored', n:2 }, { t:'grunt', n:10 }, { t:'skimmer', n:5 }],
+  [{ t:'regen', n:2 }, { t:'grunt', n:12 }, { t:'brute', n:2 }],
+  [{ t:'flier', n:6 }, { t:'darter', n:4 }, { t:'grunt', n:10 }],
+  [{ t:'boss', n:1 }, { t:'grunt', n:12 }, { t:'runner', n:6 }],
+  [{ t:'tank', n:2 }, { t:'brood', n:3 }, { t:'fast', n:10 }],
+  [{ t:'wraith', n:4 }, { t:'bulwark', n:1 }, { t:'grunt', n:12 }],
+  [{ t:'warchief', n:1 }, { t:'armored', n:3 }, { t:'flier', n:8 }],
+  [{ t:'boss', n:1 }, { t:'tank', n:2 }, { t:'regen', n:4 }, { t:'phantom', n:8 }],
+  [{ t:'bulwark', n:1 }, { t:'brood', n:4 }, { t:'darter', n:10 }, { t:'runner', n:8 }],
+  [{ t:'boss', n:2 }, { t:'wraith', n:6 }, { t:'brute', n:6 }, { t:'skimmer', n:12 }],
+  [{ t:'warchief', n:1 }, { t:'tank', n:3 }, { t:'armored', n:4 }, { t:'fast', n:14 }],
 ];
 
 const SCRIPTED_WAVES = WAVE_SCRIPT.length;
@@ -848,7 +851,7 @@ let state = {}, speedMult = 1;
 
 function makeState() {
   return {
-    gold:150, lives:20, wave:0, score:0, kills:0,
+    gold:195, lives:20, wave:0, score:0, kills:0,
     phase:'prep',
     towers:[], enemies:[], projectiles:[], particles:[], floaters:[],
     placing:null, mouseCol:-1, mouseRow:-1,
@@ -1615,10 +1618,15 @@ function sendWave() {
 
 function spawnEnemy(type) {
   const def = ENEMY_DEFS[type];
-  const scale = 1+(state.wave-1)*0.15;
+  /* Slower HP ramp early (was 0.15 per wave) — waves 1–3 stay closer to base stats. */
+  let scale = 1 + Math.max(0, state.wave - 1) * 0.085;
+  /* First wave only: softer targets so you can learn placement with one cheap tower. */
+  const firstWaveTutorial = state.wave === 1;
+  if (firstWaveTutorial) scale *= 0.75;
+  const spdMul = firstWaveTutorial ? 0.9 : 1;
   const start = cellCenter(PATH_CELLS[0].c, PATH_CELLS[0].r);
   state.enemies.push({
-    type, hp:def.hp*scale, maxHp:def.hp*scale, spd:def.spd,
+    type, hp:def.hp*scale, maxHp:def.hp*scale, spd:def.spd*spdMul,
     gold:def.gold, pathIdx:1, slowTimer:0,
     regenTimer: def.regen ? 1 : 0, alive:true,
     id:Math.random(),
