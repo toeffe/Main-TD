@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Tower Defense</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root, html[data-theme="dark"] {
+      --accent: #b0b0b0;
+      --accent-muted: #888888;
+      --gold-ui: #d0d0d0;
+      --danger: #8a8a8a;
+      --success: #eaeaea;
+      --bg-page: #0c0c0c;
+      --bg-canvas: #080808;
+      --panel: rgba(28,28,28,0.96);
+      --panel-elev: rgba(36,36,36,0.98);
+      --border: rgba(255,255,255,0.12);
+      --border-strong: rgba(255,255,255,0.22);
+      --text: #dcdcdc;
+      --text-dim: rgba(220,220,220,0.55);
+      --btn-bg1: #3a3a3a;
+      --btn-bg2: #2a2a2a;
+      --btn-bg-hover1: #4a4a4a;
+      --btn-bg-hover2: #333333;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+      --overlay-scrim: rgba(8,8,8,0.88);
+    }
+    html[data-theme="light"] {
+      --accent: #404040;
+      --accent-muted: #606060;
+      --gold-ui: #2a2a2a;
+      --danger: #5a5a5a;
+      --success: #1a1a1a;
+      --bg-page: #e4e4e4;
+      --bg-canvas: #dedede;
+      --panel: rgba(248,248,248,0.97);
+      --panel-elev: rgba(255,255,255,0.98);
+      --border: rgba(0,0,0,0.12);
+      --border-strong: rgba(0,0,0,0.2);
+      --text: #1a1a1a;
+      --text-dim: rgba(26,26,26,0.55);
+      --btn-bg1: #c8c8c8;
+      --btn-bg2: #b0b0b0;
+      --btn-bg-hover1: #d8d8d8;
+      --btn-bg-hover2: #c0c0c0;
+      --card-bg: rgba(0,0,0,0.04);
+      --card-border: rgba(0,0,0,0.1);
+      --overlay-scrim: rgba(228,228,228,0.92);
+    }
+    html {
+      height: 100%;
+      height: -webkit-fill-available;
+    }
+    body {
+      min-height: 100%;
+      min-height: -webkit-fill-available;
+      width: 100%;
+      background: var(--bg-page);
+      overflow: hidden;
+      font-family: 'Share Tech Mono', monospace;
+    }
+    #stage-fit {
+      position: fixed;
+      left: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding:
+        max(8px, env(safe-area-inset-top, 0px))
+        max(8px, env(safe-area-inset-right, 0px))
+        max(8px, env(safe-area-inset-bottom, 0px))
+        max(8px, env(safe-area-inset-left, 0px));
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    /* Clip box: exact scaled pixel size. Wrapper is position:absolute so it cannot
+       force this flex item to full design width (flex min-width:auto bug). */
+    #scale-holder {
+      position: relative;
+      display: block;
+      overflow: hidden;
+      flex-shrink: 0;
+      min-width: 0;
+      min-height: 0;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    #wrapper {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1080px;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      transform-origin: top left;
+      will-change: transform;
+    }
+    #hud {
+      width: 100%; min-height: 52px; background: var(--panel);
+      border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0;
+      display: flex; flex-wrap: wrap; align-items: center; padding: 8px 16px; gap: 16px 20px; z-index: 20;
+    }
+    .hud-item { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; color: var(--text); }
+    .hud-item .val { color: var(--accent); min-width: 36px; }
+    .hud-item.gold .val { color: var(--gold-ui); }
+    .hud-item.lives .val { color: var(--danger); }
+    .hud-item.score .val { color: var(--accent-muted); }
+    #theme-btn {
+      background: var(--card-bg); border: 1px solid var(--border);
+      color: var(--text); font-family: 'Orbitron', monospace; font-size: 9px; font-weight: 700;
+      padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+      letter-spacing: 0.06em;
+    }
+    #theme-btn:hover { border-color: var(--border-strong); background: rgba(128,128,128,0.12); }
+    #wave-btn {
+      margin-left: auto; background: linear-gradient(135deg, var(--btn-bg1), var(--btn-bg2));
+      border: 1px solid var(--border-strong); color: var(--accent); font-family: 'Orbitron', monospace;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; padding: 7px 14px;
+      border-radius: 6px; cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+    }
+    #wave-btn:hover:not(:disabled) { background: linear-gradient(135deg, var(--btn-bg-hover1), var(--btn-bg-hover2)); box-shadow: 0 2px 12px rgba(0,0,0,0.2); }
+    #wave-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #speed-btn {
+      background: var(--card-bg); border: 1px solid var(--border);
+      color: var(--text); font-family: 'Orbitron', monospace; font-size: 10px; font-weight: 700;
+      padding: 7px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;
+    }
+    #speed-btn:hover { border-color: var(--border-strong); }
+    #game-container {
+      width: 100%; border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+      background: var(--bg-canvas); position: relative;
+    }
+    #game-container canvas { display: block; width: 100%; height: auto; }
+    #bottom-panel {
+      width: 100%; background: var(--panel); border: 1px solid var(--border); border-top: none;
+      border-radius: 0 0 12px 12px; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; z-index: 20;
+    }
+    .tower-card {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      background: var(--card-bg); border: 1px solid var(--card-border);
+      border-radius: 10px; padding: 8px 12px; cursor: pointer; transition: all 0.18s;
+      min-width: 74px; user-select: none;
+    }
+    .tower-card:hover { border-color: var(--border-strong); background: rgba(128,128,128,0.1); }
+    .tower-card.selected { border-color: var(--accent); background: rgba(128,128,128,0.15); }
+    .tower-card.unaffordable { opacity: 0.38; cursor: not-allowed; }
+    .tower-card .t-name { font-family: 'Orbitron', monospace; font-size: 8px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); }
+    .tower-card .t-cost { font-size: 10px; color: var(--gold-ui); font-weight: 700; }
+    .tower-card .t-stats { font-size: 8px; color: var(--text-dim); text-align: center; line-height: 1.4; }
+    #info-panel {
+      margin-left: auto; min-width: 180px; max-width: 280px; font-size: 11px; color: var(--text-dim);
+      line-height: 1.7; border-left: 1px solid var(--border); padding-left: 14px;
+    }
+    #info-panel .info-title { font-family: 'Orbitron', monospace; font-size: 9px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px; }
+    #overlay {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      background: var(--overlay-scrim); z-index: 50;
+    }
+    #overlay.show { display: flex; }
+    #overlay-box { text-align: center; padding: 36px 48px; background: var(--panel-elev); border: 1px solid var(--border); border-radius: 16px; }
+    #overlay-box h1 { font-family: 'Orbitron', monospace; font-size: 38px; font-weight: 900; margin-bottom: 10px; }
+    #overlay-box h1.victory { color: var(--success); }
+    #overlay-box h1.defeat { color: var(--danger); }
+    #overlay-box p { font-size: 13px; color: var(--text); margin-bottom: 24px; }
+    #overlay-box .stat { color: var(--gold-ui); font-weight: 700; }
+    #restart-btn {
+      font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      padding: 11px 30px; background: linear-gradient(135deg, var(--btn-bg1), var(--btn-bg2));
+      border: 1px solid var(--border-strong); color: var(--accent); border-radius: 8px; cursor: pointer;
+    }
+    #restart-btn:hover { background: linear-gradient(135deg, var(--btn-bg-hover1), var(--btn-bg-hover2)); }
+    ::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="stage-fit">
+<div id="scale-holder">
+<div id="wrapper">
+  <div id="hud">
+    <button type="button" id="theme-btn" title="Toggle light / dark">LIGHT</button>
+    <div class="hud-item gold"><span>⬡</span><span>GOLD</span><span class="val" id="hud-gold">150</span></div>
+    <div class="hud-item lives"><span>♥</span><span>LIVES</span><span class="val" id="hud-lives">20</span></div>
+    <div class="hud-item"><span>◈</span><span>WAVE</span><span class="val" id="hud-wave">0/12</span></div>
+    <div class="hud-item score"><span>✦</span><span>SCORE</span><span class="val" id="hud-score">0</span></div>
+    <div class="hud-item"><span>⚔</span><span>KILLS</span><span class="val" id="hud-kills">0</span></div>
+    <button id="speed-btn">2× SPEED</button>
+    <button id="wave-btn">► SEND WAVE 1</button>
+  </div>
+  <div id="game-container">
+    <canvas id="gameCanvas" width="1080" height="600"></canvas>
+    <div id="overlay">
+      <div id="overlay-box">
+        <h1 id="overlay-title">VICTORY</h1>
+        <p id="overlay-msg">You defended the base!</p>
+        <button id="restart-btn" onclick="restartGame()">PLAY AGAIN</button>
+      </div>
+    </div>
+  </div>
+  <div id="bottom-panel">
+    <div id="info-panel">
+      <div class="info-title">How to Play</div>
+      Click a tower, then click a<br>grass tile to place it.<br>Right-click to cancel.<br>Towers cannot block the path.
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ISO TD — Isometric 2.5D Tower Defense
+// ═══════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+function themeKey() {
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+const MAP_PALETTE = {
+  dark: {
+    bg: '#080808',
+    grass: ['#121212', '#101010', '#141414', '#0e0e0e'],
+    path: '#2c2c2c',
+    pathStroke: 'rgba(255,255,255,0.08)',
+    pathDot: 'rgba(255,255,255,0.06)',
+    startTop: '#2a2424',
+    startStroke: 'rgba(255,255,255,0.2)',
+    startLabel: '#c0c0c0',
+    endTop: '#1e221e',
+    endStroke: 'rgba(255,255,255,0.18)',
+    endLabel: '#b8b8b8',
+    edgePath: '#242424',
+    edgeGrass: '#0c0c0c',
+    previewOk: 'rgba(200,200,200,0.14)',
+    previewOkStroke: 'rgba(220,220,220,0.65)',
+    previewBad: 'rgba(100,100,100,0.35)',
+    previewBadStroke: 'rgba(80,80,80,0.75)',
+    rangeOk: 'rgba(200,200,200,0.22)',
+    rangeBad: 'rgba(90,90,90,0.25)',
+    hudText: 'rgba(200,200,200,0.5)',
+  },
+  light: {
+    bg: '#d8d8d8',
+    grass: ['#c8c8c8', '#cacaca', '#c4c4c4', '#cecece'],
+    path: '#a8a8a8',
+    pathStroke: 'rgba(0,0,0,0.1)',
+    pathDot: 'rgba(0,0,0,0.06)',
+    startTop: '#b8b0b0',
+    startStroke: 'rgba(0,0,0,0.18)',
+    startLabel: '#2a2a2a',
+    endTop: '#b0b8b0',
+    endStroke: 'rgba(0,0,0,0.16)',
+    endLabel: '#2a2a2a',
+    edgePath: '#989898',
+    edgeGrass: '#bcbcbc',
+    previewOk: 'rgba(40,40,40,0.12)',
+    previewOkStroke: 'rgba(30,30,30,0.55)',
+    previewBad: 'rgba(60,60,60,0.22)',
+    previewBadStroke: 'rgba(40,40,40,0.65)',
+    rangeOk: 'rgba(40,40,40,0.18)',
+    rangeBad: 'rgba(0,0,0,0.15)',
+    hudText: 'rgba(40,40,40,0.55)',
+  },
+};
+
+function mapPal() {
+  return MAP_PALETTE[themeKey()];
+}
+
+function canvasCoords(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = (clientX - rect.left) * (W / rect.width);
+  const sy = (clientY - rect.top) * (H / rect.height);
+  return { sx, sy };
+}
+
+function viewportBox() {
+  const vv = window.visualViewport;
+  if (vv && vv.width > 0 && vv.height > 0) {
+    return { w: vv.width, h: vv.height };
+  }
+  return { w: window.innerWidth, h: window.innerHeight };
+}
+
+function fitLayout() {
+  const wrap = document.getElementById('wrapper');
+  const holder = document.getElementById('scale-holder');
+  const stage = document.getElementById('stage-fit');
+  if (!wrap || !holder || !stage) return;
+
+  wrap.style.transform = 'none';
+  const nw = wrap.offsetWidth;
+  const nh = wrap.offsetHeight;
+  if (nw < 1 || nh < 1) return;
+
+  const vb = viewportBox();
+  const sw = stage.clientWidth || document.documentElement.clientWidth || vb.w;
+  const sh = stage.clientHeight || document.documentElement.clientHeight || vb.h;
+  let availW = Math.min(vb.w, sw) - 4;
+  let availH = Math.min(vb.h, sh) - 4;
+  if (availW < 48) availW = Math.max(48, vb.w - 4);
+  if (availH < 48) availH = Math.max(48, vb.h - 4);
+
+  /* Fill viewport: scale to available space (design size = #wrapper / canvas). */
+  const scale = Math.min(availW / nw, availH / nh) * 0.99;
+  const bw = Math.max(1, Math.ceil(nw * scale - 0.001));
+  const bh = Math.max(1, Math.ceil(nh * scale - 0.001));
+
+  holder.style.width = `${bw}px`;
+  holder.style.height = `${bh}px`;
+  wrap.style.transform = `scale(${scale})`;
+}
+
+function scheduleFitLayout() {
+  requestAnimationFrame(() => {
+    fitLayout();
+    requestAnimationFrame(fitLayout);
+  });
+}
+
+function applyTheme(next) {
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('td-theme', next); } catch (e) {}
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = next === 'light' ? 'DARK' : 'LIGHT';
+  if (typeof state !== 'undefined' && state) renderTowerPanel();
+  scheduleFitLayout();
+}
+
+function initTheme() {
+  let t = 'dark';
+  try { t = localStorage.getItem('td-theme') || 'dark'; } catch (e) {}
+  if (t !== 'light' && t !== 'dark') t = 'dark';
+  applyTheme(t);
+}
+
+document.getElementById('theme-btn').addEventListener('click', () => {
+  applyTheme(themeKey() === 'dark' ? 'light' : 'dark');
+});
+
+window.addEventListener('resize', scheduleFitLayout);
+window.addEventListener('orientationchange', () => setTimeout(scheduleFitLayout, 150));
+window.addEventListener('load', scheduleFitLayout);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', scheduleFitLayout);
+  let vvScrollT = 0;
+  window.visualViewport.addEventListener('scroll', () => {
+    clearTimeout(vvScrollT);
+    vvScrollT = setTimeout(scheduleFitLayout, 80);
+  });
+}
+
+// ── ISOMETRIC CONFIG ─────────────────────────────────────────
+const COLS = 20, ROWS = 12;
+const TW = 64, TH = 32;   // tile width / height (2:1 ratio)
+const EDGE_DROP = 6;      // vertical extrusion below bottom tile corners (drawMap)
+
+// Map spans all corners (c,r) with c in 0..COLS, r in 0..ROWS — center that bbox in the canvas.
+const ISO_X_OFF_MIN = (0 - ROWS) * (TW / 2);
+const ISO_X_OFF_MAX = COLS * (TW / 2);
+const ISO_X_SPAN = ISO_X_OFF_MAX - ISO_X_OFF_MIN;
+const ISO_Y_OFF_MAX = (COLS + ROWS) * (TH / 2) + EDGE_DROP;
+
+const MAP_PAD = { x: 20, top: 40, bottom: 28 };
+const innerW = W - MAP_PAD.x * 2;
+const innerH = H - MAP_PAD.top - MAP_PAD.bottom;
+const ORIGIN_X = MAP_PAD.x + (innerW - ISO_X_SPAN) / 2 - ISO_X_OFF_MIN;
+const ORIGIN_Y = MAP_PAD.top + (innerH - ISO_Y_OFF_MAX) / 2;
+
+// Convert grid (col, row) → screen (px, py)
+function isoProject(col, row, z = 0) {
+  return {
+    x: ORIGIN_X + (col - row) * (TW / 2),
+    y: ORIGIN_Y + (col + row) * (TH / 2) - z
+  };
+}
+
+// Convert screen (mx, my) → nearest grid (col, row)
+function screenToGrid(sx, sy) {
+  const relX = sx - ORIGIN_X;
+  const relY = sy - ORIGIN_Y;
+  const col = Math.round((relX / (TW / 2) + relY / (TH / 2)) / 2);
+  const row = Math.round((relY / (TH / 2) - relX / (TW / 2)) / 2);
+  return { col, row };
+}
+
+// ── PATH (grid cells the road passes through) ─────────────────
+// Winding path across the isometric grid
+const PATH_CELLS = [
+  {c:0,r:6},{c:1,r:6},{c:2,r:6},{c:3,r:6},{c:4,r:6},
+  {c:4,r:5},{c:4,r:4},{c:4,r:3},
+  {c:5,r:3},{c:6,r:3},{c:7,r:3},{c:8,r:3},
+  {c:8,r:4},{c:8,r:5},{c:8,r:6},{c:8,r:7},{c:8,r:8},
+  {c:9,r:8},{c:10,r:8},{c:11,r:8},{c:12,r:8},
+  {c:12,r:7},{c:12,r:6},{c:12,r:5},{c:12,r:4},
+  {c:13,r:4},{c:14,r:4},{c:15,r:4},{c:16,r:4},
+  {c:16,r:5},{c:16,r:6},{c:16,r:7},{c:16,r:8},{c:16,r:9},
+  {c:17,r:9},{c:18,r:9},{c:19,r:9}
+];
+
+// Build a Set of path cells for quick lookup
+const PATH_SET = new Set(PATH_CELLS.map(p => `${p.c},${p.r}`));
+
+// Convert path cells to world-space waypoints (center of each tile)
+function cellCenter(c, r) {
+  return isoProject(c + 0.5, r + 0.5, 0);
+}
+
+// ── TOWER DEFINITIONS ──────────────────────────────────────────
+const TOWER_DEFS = {
+  cannon: { name:'CANNON', cost:60,  dmg:18, range:3.5, rate:1.2, topColor:'#2a5ca8', sideColor:'#1a3d70', accentColor:'#87c4ff', projColor:'#4a9eff', projSize:5, splash:0, slow:0, desc:'Balanced. Good all-round.' },
+  sniper: { name:'SNIPER', cost:100, dmg:55, range:7.0, rate:0.5, topColor:'#7a3daa', sideColor:'#4d2570', accentColor:'#e0baff', projColor:'#c084fc', projSize:3, splash:0, slow:0, desc:'Long range, high dmg. Slow.' },
+  mortar: { name:'MORTAR', cost:130, dmg:30, range:4.5, rate:0.6, topColor:'#a04020', sideColor:'#6b2910', accentColor:'#fdba74', projColor:'#fb923c', projSize:7, splash:2.5, slow:0, desc:'Area damage. Ignores armor.' },
+  ice:    { name:'ICE',    cost:90,  dmg:8,  range:3.0, rate:1.5, topColor:'#1a7a8a', sideColor:'#0f4d58', accentColor:'#a5f3fc', projColor:'#67e8f9', projSize:5, splash:1.5, slow:0.45, desc:'Slows enemies. Utility.' },
+  laser:  { name:'LASER',  cost:200, dmg:6,  range:4.5, rate:8,   topColor:'#8a2060', sideColor:'#5a1040', accentColor:'#fba4cf', projColor:'#f472b6', projSize:2, splash:0, slow:0, desc:'Rapid-fire beam. High DPS.' },
+};
+
+// ── ENEMY DEFINITIONS ───────────────────────────────────────────
+const ENEMY_DEFS = {
+  grunt: { name:'Grunt', hp:80,   spd:1.8, gold:8,  size:0.32, color:'#c0302a', sideColor:'#7a1a18', armor:0 },
+  fast:  { name:'Scout', hp:50,   spd:3.5, gold:10, size:0.24, color:'#c8a010', sideColor:'#7a6008', armor:0 },
+  tank:  { name:'Tank',  hp:400,  spd:0.9, gold:25, size:0.44, color:'#4a5568', sideColor:'#2d3748', armor:0.3 },
+  boss:  { name:'BOSS',  hp:1200, spd:0.7, gold:80, size:0.56, color:'#5b21b6', sideColor:'#3b1486', armor:0.4 },
+  flier: { name:'Flier', hp:60,   spd:2.8, gold:12, size:0.28, color:'#0e7490', sideColor:'#0c4a6e', armor:0 },
+  regen: { name:'Regen', hp:200,  spd:1.4, gold:20, size:0.36, color:'#15803d', sideColor:'#14532d', armor:0.1 },
+};
+
+// ── WAVE SCRIPT ─────────────────────────────────────────────────
+const WAVE_SCRIPT = [
+  [{t:'grunt',n:8}],
+  [{t:'grunt',n:6},{t:'fast',n:4}],
+  [{t:'grunt',n:10},{t:'fast',n:5}],
+  [{t:'tank',n:2},{t:'grunt',n:8}],
+  [{t:'fast',n:10},{t:'regen',n:3}],
+  [{t:'grunt',n:8},{t:'tank',n:3},{t:'fast',n:6}],
+  [{t:'regen',n:6},{t:'fast',n:8},{t:'tank',n:2}],
+  [{t:'boss',n:1},{t:'grunt',n:12}],
+  [{t:'tank',n:4},{t:'regen',n:5},{t:'fast',n:10}],
+  [{t:'flier',n:10},{t:'grunt',n:10}],
+  [{t:'boss',n:2},{t:'tank',n:4},{t:'fast',n:8}],
+  [{t:'boss',n:3},{t:'regen',n:8},{t:'tank',n:4},{t:'fast',n:12}],
+];
+
+// ── STATE ────────────────────────────────────────────────────────
+let state = {}, speedMult = 1;
+
+function makeState() {
+  return {
+    gold:150, lives:20, wave:0, score:0, kills:0,
+    phase:'prep',
+    towers:[], enemies:[], projectiles:[], particles:[], floaters:[],
+    placing:null, mouseCol:-1, mouseRow:-1,
+    spawnQueue:[], spawnElapsed:0,
+  };
+}
+
+function restartGame() {
+  state = makeState();
+  document.getElementById('overlay').classList.remove('show');
+  speedMult = 1;
+  document.getElementById('speed-btn').textContent = '2× SPEED';
+  renderTowerPanel(); updateHUD();
+  scheduleFitLayout();
+}
+
+// ── HUD ──────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('hud-gold').textContent  = state.gold;
+  document.getElementById('hud-lives').textContent = state.lives;
+  document.getElementById('hud-wave').textContent  = `${state.wave}/${WAVE_SCRIPT.length}`;
+  document.getElementById('hud-score').textContent = state.score;
+  document.getElementById('hud-kills').textContent = state.kills;
+  const wb = document.getElementById('wave-btn');
+  if (state.phase==='combat') { wb.disabled=true; wb.textContent=`WAVE ${state.wave} IN PROGRESS`; }
+  else if (state.wave>=WAVE_SCRIPT.length) { wb.disabled=true; wb.textContent='ALL WAVES DONE'; }
+  else { wb.disabled=false; wb.textContent=`► SEND WAVE ${state.wave+1}`; }
+}
+
+// ── TOWER PANEL ──────────────────────────────────────────────────
+function renderTowerPanel() {
+  const panel = document.getElementById('bottom-panel');
+  panel.querySelectorAll('.tower-card').forEach(e=>e.remove());
+  const info = document.getElementById('info-panel');
+  Object.entries(TOWER_DEFS).forEach(([key,def]) => {
+    const card = document.createElement('div');
+    card.className = 'tower-card'+(state.placing===key?' selected':'')+(state.gold<def.cost?' unaffordable':'');
+    const mc = document.createElement('canvas'); mc.width=44; mc.height=44;
+    drawTowerIconCanvas(mc.getContext('2d'), 22, 34, key);
+    card.appendChild(mc);
+    const nm=document.createElement('div'); nm.className='t-name'; nm.textContent=def.name; card.appendChild(nm);
+    const co=document.createElement('div'); co.className='t-cost'; co.textContent=`⬡ ${def.cost}`; card.appendChild(co);
+    const st=document.createElement('div'); st.className='t-stats'; st.textContent=`DMG ${def.dmg}  RNG ${def.range}`; card.appendChild(st);
+    card.addEventListener('click', () => {
+      if (state.gold<def.cost) return;
+      state.placing = (state.placing===key) ? null : key;
+      renderTowerPanel();
+      info.innerHTML = state.placing
+        ? `<div class="info-title">${def.name}</div>Cost: ⬡ ${def.cost}<br>Dmg: ${def.dmg} | Rng: ${def.range}<br>Rate: ${def.rate}/s<br><br>${def.desc}`
+        : `<div class="info-title">How to Play</div>Click a tower, then click a<br>grass tile to place it.<br>Right-click to cancel.<br>Towers cannot block the path.`;
+    });
+    panel.insertBefore(card, info);
+  });
+}
+
+// ── ISO DRAWING PRIMITIVES ───────────────────────────────────────
+
+// Draw an isometric tile face (top of tile)
+function drawIsoTileTop(c, col, row, fill, stroke, alpha=1) {
+  const p = isoProject(col, row);
+  const r = isoProject(col+1, row);
+  const b = isoProject(col+1, row+1);
+  const l = isoProject(col, row+1);
+  c.save(); c.globalAlpha = alpha;
+  c.beginPath();
+  c.moveTo(p.x, p.y); c.lineTo(r.x, r.y); c.lineTo(b.x, b.y); c.lineTo(l.x, l.y);
+  c.closePath();
+  c.fillStyle = fill; c.fill();
+  if (stroke) { c.strokeStyle = stroke; c.lineWidth = 0.5; c.stroke(); }
+  c.restore();
+}
+
+// Draw isometric box (top + right side + left side)
+function drawIsoBox(c, cx, cy, w, d, h, topColor, leftColor, rightColor, strokeColor) {
+  // cx,cy = screen center of top face, w=width, d=depth, h=height in screen px
+  const hw = w/2, hd = d/2;
+  // Top face (diamond)
+  c.beginPath();
+  c.moveTo(cx,     cy-hd);
+  c.lineTo(cx+hw,  cy);
+  c.lineTo(cx,     cy+hd);
+  c.lineTo(cx-hw,  cy);
+  c.closePath();
+  c.fillStyle = topColor; c.fill();
+  if (strokeColor) { c.strokeStyle = strokeColor; c.lineWidth = 0.5; c.stroke(); }
+  // Left face (parallelogram going down-left)
+  c.beginPath();
+  c.moveTo(cx-hw, cy);
+  c.lineTo(cx,    cy+hd);
+  c.lineTo(cx,    cy+hd+h);
+  c.lineTo(cx-hw, cy+h);
+  c.closePath();
+  c.fillStyle = leftColor; c.fill();
+  if (strokeColor) { c.strokeStyle = strokeColor; c.lineWidth = 0.5; c.stroke(); }
+  // Right face (parallelogram going down-right)
+  c.beginPath();
+  c.moveTo(cx,    cy+hd);
+  c.lineTo(cx+hw, cy);
+  c.lineTo(cx+hw, cy+h);
+  c.lineTo(cx,    cy+hd+h);
+  c.closePath();
+  c.fillStyle = rightColor; c.fill();
+  if (strokeColor) { c.strokeStyle = strokeColor; c.lineWidth = 0.5; c.stroke(); }
+}
+
+// Draw a 3D isometric tower on a tile
+function drawIsoTower(c, screenX, screenY, key) {
+  const def = TOWER_DEFS[key];
+  const tw = TW*0.7, td = TH*0.7;
+
+  // Base platform
+  drawIsoBox(c, screenX, screenY - TH*0.1,
+    tw, td, TH*0.35,
+    darken(def.topColor, 15), darken(def.sideColor, 20), darken(def.sideColor, 10),
+    'rgba(0,0,0,0.25)'
+  );
+
+  // Tower body (taller block on top)
+  const bodyY = screenY - TH*0.1 - TH*0.35;
+  drawIsoBox(c, screenX, bodyY,
+    tw*0.65, td*0.65, TH*0.5,
+    def.topColor, darken(def.topColor, 30), darken(def.topColor, 20),
+    'rgba(0,0,0,0.2)'
+  );
+
+  // Accent / barrel / type-specific top
+  const topY = bodyY - TH*0.5;
+  const ax = screenX, ay = topY;
+
+  switch(key) {
+    case 'cannon':
+      // Barrel pointing right-iso
+      c.save();
+      c.fillStyle = def.accentColor;
+      c.beginPath();
+      c.ellipse(ax, ay, tw*0.22, td*0.22, 0, 0, Math.PI*2);
+      c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(ax+tw*0.08, ay-td*0.06, tw*0.07, 0, Math.PI*2); c.fill();
+      // barrel stick
+      c.fillStyle = def.accentColor;
+      c.beginPath();
+      c.moveTo(ax+tw*0.15, ay-2); c.lineTo(ax+tw*0.44, ay-4); c.lineTo(ax+tw*0.44, ay+3); c.lineTo(ax+tw*0.15, ay+3);
+      c.fill();
+      c.restore();
+      break;
+    case 'sniper':
+      c.save();
+      c.fillStyle = def.accentColor;
+      c.beginPath(); c.ellipse(ax, ay, tw*0.2, td*0.2, 0, 0, Math.PI*2); c.fill();
+      // long barrel
+      c.fillStyle = '#e0baff';
+      c.beginPath(); c.moveTo(ax+tw*0.12, ay-2); c.lineTo(ax+tw*0.55, ay-3); c.lineTo(ax+tw*0.55, ay+2); c.lineTo(ax+tw*0.12, ay+2); c.fill();
+      // scope
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(ax+tw*0.5, ay-4, 4, 0, Math.PI*2); c.fill();
+      c.restore();
+      break;
+    case 'mortar':
+      c.save();
+      c.fillStyle = def.accentColor;
+      c.beginPath(); c.roundRect(ax-tw*0.18, ay-td*0.22, tw*0.36, td*0.44, 3); c.fill();
+      // barrel (pointing up)
+      c.fillStyle = darken(def.topColor, 10);
+      c.beginPath(); c.ellipse(ax, ay, tw*0.11, td*0.11, 0, 0, Math.PI*2); c.fill();
+      c.restore();
+      break;
+    case 'ice':
+      // Crystal spikes
+      c.save();
+      for(let i=0;i<6;i++){
+        const a = i*Math.PI/3;
+        const sx = ax+Math.cos(a)*tw*0.28, sy = ay+Math.sin(a)*td*0.28*0.5;
+        c.fillStyle = def.accentColor;
+        c.beginPath(); c.moveTo(ax,ay); c.lineTo(sx-3,sy); c.lineTo(sx,sy-6); c.lineTo(sx+3,sy); c.fill();
+      }
+      c.fillStyle = '#fff';
+      c.beginPath(); c.arc(ax, ay, tw*0.12, 0, Math.PI*2); c.fill();
+      c.restore();
+      break;
+    case 'laser':
+      c.save();
+      c.fillStyle = def.accentColor;
+      c.beginPath(); c.arc(ax, ay, tw*0.22, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#fff'; c.beginPath(); c.arc(ax, ay, tw*0.1, 0, Math.PI*2); c.fill();
+      // beam nozzle
+      c.fillStyle = def.projColor;
+      c.beginPath(); c.moveTo(ax+tw*0.1, ay-2); c.lineTo(ax+tw*0.5, ay-3); c.lineTo(ax+tw*0.5, ay+3); c.lineTo(ax+tw*0.1, ay+2); c.fill();
+      c.restore();
+      break;
+  }
+}
+
+// Draw tower on miniature canvas (for the UI panel)
+function drawTowerIconCanvas(c, cx, cy, key) {
+  const def = TOWER_DEFS[key];
+  drawIsoBox(c, cx, cy-2, 32, 16, 10, darken(def.topColor,10), darken(def.sideColor,20), darken(def.sideColor,10), 'rgba(0,0,0,0.3)');
+  drawIsoBox(c, cx, cy-12, 22, 11, 13, def.topColor, darken(def.topColor,30), darken(def.topColor,20), 'rgba(0,0,0,0.2)');
+}
+
+// Draw an isometric enemy (hexagonal blob with height)
+function drawIsoEnemy(c, enemy) {
+  const def = ENEMY_DEFS[enemy.type];
+  const sx = enemy.sx, sy = enemy.sy;
+  const r = def.size * TW * 0.5;
+  const rh = r * 0.5;  // iso height factor
+  const h = r * 1.1;   // vertical height of body
+
+  // Shadow ellipse on ground
+  c.save(); c.globalAlpha = 0.35;
+  c.fillStyle = '#000';
+  c.beginPath(); c.ellipse(sx, sy, r*0.85, rh*0.5, 0, 0, Math.PI*2); c.fill();
+  c.restore();
+
+  const bodyColor = enemy.slowTimer > 0 ? '#3dd8e8' : def.color;
+  const sideBodyColor = enemy.slowTimer > 0 ? '#1a8fa0' : def.sideColor;
+
+  if (enemy.type === 'boss') {
+    // Hexagonal prism
+    const pts = [];
+    for(let i=0;i<6;i++){
+      const a = i*Math.PI/3;
+      pts.push({x: sx+Math.cos(a)*r, y: sy+Math.sin(a)*rh});
+    }
+    // Bottom (shifted down by h)
+    const ptsB = pts.map(p=>({x:p.x, y:p.y+h}));
+    // Side faces
+    for(let i=0;i<6;i++){
+      const n = (i+1)%6;
+      c.beginPath();
+      c.moveTo(pts[i].x, pts[i].y); c.lineTo(pts[n].x, pts[n].y);
+      c.lineTo(ptsB[n].x, ptsB[n].y); c.lineTo(ptsB[i].x, ptsB[i].y);
+      c.closePath();
+      c.fillStyle = i<3 ? darken(sideBodyColor,10) : sideBodyColor;
+      c.fill(); c.strokeStyle='rgba(0,0,0,0.2)'; c.lineWidth=0.5; c.stroke();
+    }
+    // Top face
+    c.beginPath(); pts.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y)); c.closePath();
+    c.fillStyle = bodyColor; c.fill(); c.strokeStyle='rgba(255,255,255,0.2)'; c.lineWidth=1; c.stroke();
+    // Inner rune on top
+    c.strokeStyle='rgba(255,255,255,0.4)'; c.lineWidth=0.8;
+    c.beginPath(); c.arc(sx, sy, r*0.45, 0, Math.PI*2); c.stroke();
+  } else if (enemy.type === 'flier') {
+    // Diamond elevated (floating)
+    const fy = sy - h*0.7;
+    c.fillStyle = bodyColor;
+    c.beginPath(); c.moveTo(sx, fy-r*0.9); c.lineTo(sx+r*0.8, fy); c.lineTo(sx, fy+r*0.6); c.lineTo(sx-r*0.8, fy); c.closePath(); c.fill();
+    c.strokeStyle = def.sideColor; c.lineWidth = 1; c.stroke();
+    // Wings
+    c.fillStyle = 'rgba(6,182,212,0.35)';
+    c.beginPath(); c.ellipse(sx-r*1.5, fy-r*0.2, r*1.0, r*0.3, -0.35, 0, Math.PI*2); c.fill();
+    c.beginPath(); c.ellipse(sx+r*1.5, fy-r*0.2, r*1.0, r*0.3, 0.35, 0, Math.PI*2); c.fill();
+    // Dashed line to ground
+    c.save(); c.globalAlpha=0.3; c.strokeStyle='#fff'; c.lineWidth=0.5; c.setLineDash([3,3]);
+    c.beginPath(); c.moveTo(sx, fy+r*0.6); c.lineTo(sx, sy); c.stroke(); c.setLineDash([]); c.restore();
+  } else {
+    // Generic cylinder enemy
+    // Side band
+    c.beginPath();
+    c.moveTo(sx-r, sy); c.lineTo(sx-r, sy+h*0.6);
+    c.arc(sx, sy+h*0.6, r, Math.PI, 0, false);
+    c.lineTo(sx+r, sy); c.arc(sx, sy, r, 0, Math.PI, true);
+    c.closePath();
+    c.fillStyle = sideBodyColor; c.fill();
+    // Top ellipse
+    c.beginPath(); c.ellipse(sx, sy, r, rh, 0, 0, Math.PI*2);
+    c.fillStyle = bodyColor; c.fill(); c.strokeStyle='rgba(255,255,255,0.15)'; c.lineWidth=0.5; c.stroke();
+    // Eye on top
+    if (enemy.type !== 'tank') {
+      c.fillStyle = '#fff'; c.beginPath(); c.ellipse(sx+r*0.3, sy-rh*0.3, r*0.28, rh*0.28, 0, 0, Math.PI*2); c.fill();
+      c.fillStyle = '#111'; c.beginPath(); c.arc(sx+r*0.35, sy-rh*0.25, r*0.14, 0, Math.PI*2); c.fill();
+    }
+  }
+
+  // Health bar (always on top)
+  const bw = r*2.2, bh = 3.5, bx = sx-bw/2, by = sy - h - r*0.5 - 8;
+  c.fillStyle='rgba(0,0,0,0.55)'; c.beginPath(); c.roundRect(bx,by,bw,bh,2); c.fill();
+  const pct = enemy.hp/enemy.maxHp;
+  c.fillStyle = pct>0.6?'#4ade80':pct>0.3?'#facc15':'#f87171';
+  c.beginPath(); c.roundRect(bx,by,bw*pct,bh,2); c.fill();
+}
+
+// ── TERRAIN / MAP DRAWING ────────────────────────────────────────
+function drawMap() {
+  const P = mapPal();
+  ctx.fillStyle = P.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw each tile bottom-to-top, left-to-right for correct painter's order
+  // We sort by (col + row) ascending (i.e. tiles further from camera painted first)
+  const tiles = [];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) tiles.push({c,r});
+  tiles.sort((a,b)=>(a.c+a.r)-(b.c+b.r));
+
+  tiles.forEach(({c,r}) => {
+    const isPath = PATH_SET.has(`${c},${r}`);
+    const isStart = c===PATH_CELLS[0].c && r===PATH_CELLS[0].r;
+    const isEnd   = c===PATH_CELLS[PATH_CELLS.length-1].c && r===PATH_CELLS[PATH_CELLS.length-1].r;
+
+    let topColor, strokeColor;
+    if (isStart) { topColor = P.startTop; strokeColor = P.startStroke; }
+    else if (isEnd) { topColor = P.endTop; strokeColor = P.endStroke; }
+    else if (isPath) { topColor = P.path; strokeColor = P.pathStroke; }
+    else {
+      const h = (c*7+r*13)%4;
+      topColor = P.grass[h];
+      strokeColor = themeKey()==='light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)';
+    }
+
+    drawIsoTileTop(ctx, c, r, topColor, strokeColor);
+
+    if (isPath && !isStart && !isEnd) {
+      const p = isoProject(c+0.5, r+0.5);
+      ctx.save();
+      ctx.fillStyle = P.pathDot;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    if (isStart) {
+      const p = isoProject(c+0.5, r+0.5);
+      ctx.save(); ctx.fillStyle = P.startLabel; ctx.font='bold 9px Share Tech Mono'; ctx.textAlign='center';
+      ctx.fillText('START', p.x, p.y+3); ctx.restore();
+    }
+    if (isEnd) {
+      const p = isoProject(c+0.5, r+0.5);
+      ctx.save(); ctx.fillStyle = P.endLabel; ctx.font='bold 9px Share Tech Mono'; ctx.textAlign='center';
+      ctx.fillText('BASE', p.x, p.y+3); ctx.restore();
+    }
+  });
+
+  tiles.forEach(({c,r}) => {
+    if (c===COLS-1 || r===ROWS-1) {
+      const isPath = PATH_SET.has(`${c},${r}`);
+      const topL = isoProject(c, r+1);
+      const botL = {x:topL.x, y:topL.y+6};
+      const topR = isoProject(c+1, r+1);
+      const botR = {x:topR.x, y:topR.y+6};
+      const topM = isoProject(c+1, r);
+      const botM = {x:topM.x, y:topM.y+6};
+      ctx.fillStyle = isPath ? P.edgePath : P.edgeGrass;
+      if (r===ROWS-1) {
+        ctx.beginPath(); ctx.moveTo(topL.x,topL.y); ctx.lineTo(topR.x,topR.y); ctx.lineTo(botR.x,botR.y); ctx.lineTo(botL.x,botL.y); ctx.closePath(); ctx.fill();
+      }
+      if (c===COLS-1) {
+        ctx.fillStyle = isPath ? P.edgePath : P.edgeGrass;
+        ctx.beginPath(); ctx.moveTo(topM.x,topM.y); ctx.lineTo(topR.x,topR.y); ctx.lineTo(botR.x,botR.y); ctx.lineTo(botM.x,botM.y); ctx.closePath(); ctx.fill();
+      }
+    }
+  });
+}
+
+// ── PLACEMENT PREVIEW ────────────────────────────────────────────
+function drawPlacementPreview() {
+  if (!state.placing) return;
+  const P = mapPal();
+  const c = state.mouseCol, r = state.mouseRow;
+  if (c<0||r<0||c>=COLS||r>=ROWS) return;
+  const valid = !PATH_SET.has(`${c},${r}`) && !isOccupied(c,r);
+  const p = isoProject(c+0.5, r+0.5);
+
+  // Highlight tile
+  const tl = isoProject(c,r), tr=isoProject(c+1,r), br=isoProject(c+1,r+1), bl=isoProject(c,r+1);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(tl.x,tl.y); ctx.lineTo(tr.x,tr.y); ctx.lineTo(br.x,br.y); ctx.lineTo(bl.x,bl.y); ctx.closePath();
+  ctx.fillStyle = valid ? P.previewOk : P.previewBad;
+  ctx.fill();
+  ctx.strokeStyle = valid ? P.previewOkStroke : P.previewBadStroke;
+  ctx.lineWidth = 1.2; ctx.stroke();
+
+  // Range ring (approximate circle in iso space)
+  const def = TOWER_DEFS[state.placing];
+  const rangePx = def.range * TW * 0.5;
+  ctx.beginPath();
+  // Approximate isometric ellipse for range
+  ctx.ellipse(p.x, p.y, rangePx, rangePx*0.5, 0, 0, Math.PI*2);
+  ctx.strokeStyle = valid ? P.rangeOk : P.rangeBad;
+  ctx.lineWidth = 1; ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Ghost tower
+  ctx.globalAlpha = 0.6;
+  drawIsoTower(ctx, p.x, p.y - TH*0.25, state.placing);
+  ctx.restore();
+}
+
+// ── RENDER LOOP (painter's sort) ─────────────────────────────────
+function render() {
+  ctx.clearRect(0,0,W,H);
+  drawMap();
+
+  // Collect all "sprites" and sort by depth (col+row for grid-aligned, or approx for enemies)
+  const sprites = [];
+
+  // Towers
+  state.towers.forEach(t => {
+    sprites.push({ depth: t.col+t.row+0.5, type:'tower', obj:t });
+  });
+
+  // Enemies
+  state.enemies.forEach(e => {
+    sprites.push({ depth: e.gc+e.gr, type:'enemy', obj:e });
+  });
+
+  // Sort back-to-front
+  sprites.sort((a,b)=>a.depth-b.depth);
+
+  // Placement preview (drawn on top of tiles but under everything)
+  drawPlacementPreview();
+
+  // Draw sorted sprites
+  sprites.forEach(s => {
+    if (s.type==='tower') {
+      const t = s.obj;
+      const p = isoProject(t.col+0.5, t.row+0.5);
+      ctx.save();
+      if (t.fireFlash>0) {
+        ctx.shadowColor = TOWER_DEFS[t.key].accentColor;
+        ctx.shadowBlur = 16;
+      }
+      drawIsoTower(ctx, p.x, p.y - TH*0.25, t.key);
+      ctx.restore();
+    } else if (s.type==='enemy') {
+      drawIsoEnemy(ctx, s.obj);
+    }
+  });
+
+  // Projectiles
+  state.projectiles.forEach(p => drawProjectile(ctx, p));
+
+  // Particles
+  state.particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.life/p.maxLife;
+    if (p.type==='splash') {
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, p.size, p.size*0.5, 0, 0, Math.PI*2);
+      ctx.strokeStyle=p.color; ctx.lineWidth=2; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fillStyle=p.color; ctx.fill();
+    }
+    ctx.restore();
+  });
+
+  // Floaters
+  ctx.save();
+  ctx.font = 'bold 11px Share Tech Mono';
+  ctx.textAlign = 'center';
+  state.floaters.forEach(f => {
+    ctx.globalAlpha = Math.min(1, f.life*2);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+  });
+  ctx.restore();
+
+  // Status overlay
+  if (state.phase==='combat') {
+    const rem = state.enemies.length+state.spawnQueue.length;
+    ctx.save(); ctx.font='11px Share Tech Mono'; ctx.fillStyle=mapPal().hudText; ctx.textAlign='right';
+    ctx.fillText(`Enemies: ${rem}`, W-10, 18); ctx.restore();
+  }
+}
+
+// ── PROJECTILE DRAWING ────────────────────────────────────────────
+function drawProjectile(c, proj) {
+  const def = TOWER_DEFS[proj.towerKey];
+  c.save();
+  if (proj.towerKey==='laser') {
+    c.globalAlpha = proj.alpha||0;
+    c.beginPath(); c.moveTo(proj.ox, proj.oy); c.lineTo(proj.x, proj.y);
+    c.strokeStyle=def.projColor; c.lineWidth=2; c.stroke();
+  } else {
+    c.beginPath(); c.arc(proj.x, proj.y, def.projSize, 0, Math.PI*2);
+    c.fillStyle=def.projColor; c.fill();
+  }
+  c.restore();
+}
+
+// ── PATH / PLACEMENT HELPERS ──────────────────────────────────────
+function isOccupied(col, row) {
+  return state.towers.some(t=>t.col===col && t.row===row);
+}
+
+// Grid distance used for range check
+function gridDist(col, row, ec, er) {
+  const p1 = isoProject(col+0.5, row+0.5);
+  const p2 = isoProject(ec, er);
+  return Math.hypot(p1.x-p2.x, p1.y-p2.y) / (TW*0.5);
+}
+
+// ── PLACE TOWER ───────────────────────────────────────────────────
+function placeTower(col, row) {
+  if (!state.placing) return;
+  if (col<0||row<0||col>=COLS||row>=ROWS) return;
+  const def = TOWER_DEFS[state.placing];
+  if (state.gold<def.cost) return;
+  if (PATH_SET.has(`${col},${row}`)) return;
+  if (isOccupied(col, row)) return;
+  state.gold -= def.cost;
+  state.towers.push({ col, row, key:state.placing, cooldown:0, totalCooldown:1/def.rate, fireFlash:0 });
+  state.placing = null;
+  renderTowerPanel(); updateHUD();
+}
+
+// ── WAVE / SPAWNING ───────────────────────────────────────────────
+function sendWave() {
+  if (state.phase!=='prep') return;
+  if (state.wave>=WAVE_SCRIPT.length) return;
+  const script = WAVE_SCRIPT[state.wave];
+  state.wave++; state.phase='combat'; state.spawnQueue=[]; state.spawnElapsed=0;
+  let delay=0;
+  script.forEach(group=>{
+    for(let i=0;i<group.n;i++){ state.spawnQueue.push({type:group.t,delay}); delay+=700/speedMult; }
+    delay+=600/speedMult;
+  });
+  updateHUD();
+}
+
+function spawnEnemy(type) {
+  const def = ENEMY_DEFS[type];
+  const scale = 1+(state.wave-1)*0.15;
+  const start = cellCenter(PATH_CELLS[0].c, PATH_CELLS[0].r);
+  state.enemies.push({
+    type, hp:def.hp*scale, maxHp:def.hp*scale, spd:def.spd,
+    gold:def.gold, pathIdx:1, slowTimer:0,
+    regenTimer:type==='regen'?1:0, alive:true,
+    id:Math.random(),
+    sx:start.x, sy:start.y,  // screen position
+    gc:PATH_CELLS[0].c, gr:PATH_CELLS[0].r, // approx grid position for depth sort
+  });
+}
+
+// ── COMBAT ────────────────────────────────────────────────────────
+function applyDamage(enemy, dmg, towerKey) {
+  const def = ENEMY_DEFS[enemy.type];
+  const actual = towerKey==='mortar' ? dmg : dmg*(1-def.armor);
+  enemy.hp -= actual;
+  if (TOWER_DEFS[towerKey]?.slow>0) enemy.slowTimer=2.5;
+  addFloater(`-${Math.ceil(actual)}`, enemy.sx, enemy.sy-20, TOWER_DEFS[towerKey].projColor);
+}
+
+function fireTower(tower, enemy) {
+  const def = TOWER_DEFS[tower.key];
+  tower.fireFlash = 0.12;
+  if (tower.key==='laser') {
+    applyDamage(enemy, def.dmg, tower.key);
+    const tp = isoProject(tower.col+0.5, tower.row+0.5);
+    state.projectiles.push({ towerKey:'laser', ox:tp.x, oy:tp.y-TH*0.75, x:enemy.sx, y:enemy.sy, alpha:1, life:0.12 });
+  } else {
+    const tp = isoProject(tower.col+0.5, tower.row+0.5);
+    if (def.splash) {
+      state.projectiles.push({ towerKey:tower.key, x:tp.x, y:tp.y-TH*0.5, tx:enemy.sx, ty:enemy.sy, spd:300, splash:def.splash, dmg:def.dmg, life:1 });
+    } else {
+      const dx=enemy.sx-tp.x, dy=enemy.sy-tp.y;
+      const dist=Math.hypot(dx,dy)||1;
+      state.projectiles.push({ towerKey:tower.key, x:tp.x, y:tp.y-TH*0.5, vx:dx/dist*380, vy:dy/dist*380, targetId:enemy.id, dmg:def.dmg, slow:def.slow, life:1.5 });
+    }
+  }
+}
+
+// ── PARTICLES / FLOATERS ──────────────────────────────────────────
+function addParticles(x, y, color, n=10) {
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=50+Math.random()*100;
+    state.particles.push({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:0.5+Math.random()*0.3, maxLife:0.6, color, size:2+Math.random()*2.5 });
+  }
+}
+function addSplash(x, y, r, color) {
+  state.particles.push({ x, y, vx:0, vy:0, life:0.35, maxLife:0.35, color, size:r, type:'splash' });
+}
+function addFloater(text, x, y, color='#fff') {
+  state.floaters.push({ text, x, y, vy:-38, life:0.9, color });
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────
+let lastTime=0;
+function gameLoop(ts) {
+  requestAnimationFrame(gameLoop);
+  const rawDt = Math.min((ts-lastTime)/1000, 0.05); lastTime=ts;
+  const dt = rawDt*speedMult;
+  update(dt); render();
+}
+
+function update(dt) {
+  if (state.phase==='gameover') return;
+
+  // Spawn
+  if (state.phase==='combat' && state.spawnQueue.length>0) {
+    state.spawnElapsed += dt*1000;
+    while (state.spawnQueue.length>0 && state.spawnElapsed>=state.spawnQueue[0].delay) {
+      spawnEnemy(state.spawnQueue.shift().type);
+    }
+  }
+
+  // Move enemies along path
+  for(let i=state.enemies.length-1;i>=0;i--) {
+    const e = state.enemies[i];
+    if (!e.alive) continue;
+    if (e.slowTimer>0) e.slowTimer-=dt;
+    const spd = e.slowTimer>0 ? e.spd*0.45 : e.spd;
+    // Regen
+    if (e.regenTimer>0) { e.regenTimer-=dt; if(e.regenTimer<=0){e.hp=Math.min(e.maxHp,e.hp+e.maxHp*0.05);e.regenTimer=1;} }
+
+    if (e.pathIdx<PATH_CELLS.length) {
+      const target = cellCenter(PATH_CELLS[e.pathIdx].c, PATH_CELLS[e.pathIdx].r);
+      const dx=target.x-e.sx, dy=target.y-e.sy;
+      const dist=Math.hypot(dx,dy);
+      if (dist<4) {
+        e.pathIdx++;
+        if (e.pathIdx>=PATH_CELLS.length) {
+          state.lives -= e.type==='boss'?5:e.type==='tank'?3:1;
+          addParticles(e.sx, e.sy, '#ef4444', 12);
+          state.enemies.splice(i,1);
+          updateHUD();
+          if (state.lives<=0){ state.lives=0; updateHUD(); showOverlay(false); }
+          continue;
+        }
+      } else {
+        e.sx += dx/dist*spd*dt*TW*0.5;
+        e.sy += dy/dist*spd*dt*TH*0.5;
+        // Update approx grid pos for depth sorting
+        const gi = screenToGrid(e.sx, e.sy);
+        e.gc=gi.col; e.gr=gi.row;
+      }
+    }
+  }
+
+  // Remove dead enemies
+  for(let i=state.enemies.length-1;i>=0;i--) {
+    if (state.enemies[i].hp<=0) {
+      const e=state.enemies[i];
+      state.gold+=e.gold; state.score+=e.gold*10; state.kills++;
+      addParticles(e.sx, e.sy, ENEMY_DEFS[e.type].color, 12);
+      addFloater(`+${e.gold}⬡`, e.sx, e.sy-25, '#ffd700');
+      state.enemies.splice(i,1); updateHUD();
+    }
+  }
+
+  // Wave end
+  if (state.phase==='combat' && state.spawnQueue.length===0 && state.enemies.length===0) {
+    state.phase='prep';
+    const bonus=20+state.wave*5; state.gold+=bonus;
+    addFloater(`+${bonus}⬡ WAVE BONUS`, W/2, H/2, '#ffd700');
+    updateHUD(); renderTowerPanel();
+    if (state.wave>=WAVE_SCRIPT.length) setTimeout(()=>showOverlay(true),800);
+  }
+
+  // Tower targeting & firing
+  state.towers.forEach(tower => {
+    tower.cooldown-=dt;
+    if (tower.fireFlash>0) tower.fireFlash-=dt;
+    if (tower.cooldown>0) return;
+    const def=TOWER_DEFS[tower.key];
+    let best=null, bestIdx=-1;
+    state.enemies.forEach(e=>{
+      const dist=gridDist(tower.col, tower.row, e.gc, e.gr);
+      if (dist<=def.range && e.pathIdx>bestIdx) { best=e; bestIdx=e.pathIdx; }
+    });
+    if (best) { fireTower(tower, best); tower.cooldown=1/def.rate; }
+  });
+
+  // Projectile movement
+  for(let i=state.projectiles.length-1;i>=0;i--){
+    const p=state.projectiles[i];
+    p.life-=dt;
+    if (p.towerKey==='laser') { p.alpha-=dt*8; if(p.alpha<=0){state.projectiles.splice(i,1);} continue; }
+    if (p.splash) {
+      const dx=p.tx-p.x, dy=p.ty-p.y, dist=Math.hypot(dx,dy);
+      if (dist<8||p.life<=0) {
+        addSplash(p.tx, p.ty, p.splash*TW*0.25, TOWER_DEFS[p.towerKey].projColor);
+        addParticles(p.tx, p.ty, TOWER_DEFS[p.towerKey].projColor, 12);
+        state.enemies.forEach(e=>{ if(Math.hypot(e.sx-p.tx,e.sy-p.ty)<p.splash*TW*0.3) applyDamage(e,p.dmg,p.towerKey); });
+        state.projectiles.splice(i,1); continue;
+      }
+      p.x+=dx/dist*p.spd*dt; p.y+=dy/dist*p.spd*dt;
+    } else {
+      const tgt=state.enemies.find(e=>e.id===p.targetId);
+      if (tgt) {
+        const dx=tgt.sx-p.x, dy=tgt.sy-p.y, dist=Math.hypot(dx,dy);
+        if (dist<12||p.life<=0) {
+          applyDamage(tgt, p.dmg, p.towerKey);
+          if(p.slow) tgt.slowTimer=2.5;
+          addParticles(p.x, p.y, TOWER_DEFS[p.towerKey].projColor, 5);
+          state.projectiles.splice(i,1); continue;
+        }
+        p.x+=dx/dist*380*dt; p.y+=dy/dist*380*dt;
+      } else {
+        p.x+=p.vx*dt; p.y+=p.vy*dt;
+        if(p.life<=0){state.projectiles.splice(i,1);}
+      }
+    }
+  }
+
+  // Particles
+  for(let i=state.particles.length-1;i>=0;i--){
+    const p=state.particles[i]; p.life-=dt;
+    if(p.life<=0){state.particles.splice(i,1);continue;}
+    if(p.type!=='splash'){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=120*dt;}
+  }
+
+  // Floaters
+  for(let i=state.floaters.length-1;i>=0;i--){
+    const f=state.floaters[i]; f.life-=dt; f.y+=f.vy*dt;
+    if(f.life<=0) state.floaters.splice(i,1);
+  }
+}
+
+// ── OVERLAY ───────────────────────────────────────────────────────
+function showOverlay(victory) {
+  state.phase='gameover';
+  const o=document.getElementById('overlay'), t=document.getElementById('overlay-title'), m=document.getElementById('overlay-msg');
+  t.textContent=victory?'VICTORY':'DEFEAT';
+  t.classList.remove('victory','defeat');
+  t.classList.add(victory?'victory':'defeat');
+  m.innerHTML=victory
+    ? `You defended the base!<br><br>Score: <span class="stat">${state.score}</span> &nbsp; Kills: <span class="stat">${state.kills}</span>`
+    : `The enemy broke through!<br><br>Wave: <span class="stat">${state.wave}/${WAVE_SCRIPT.length}</span> &nbsp; Kills: <span class="stat">${state.kills}</span>`;
+  o.classList.add('show');
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────
+canvas.addEventListener('mousemove', e=>{
+  const { sx, sy } = canvasCoords(e.clientX, e.clientY);
+  const g=screenToGrid(sx,sy);
+  state.mouseCol=g.col; state.mouseRow=g.row;
+});
+
+canvas.addEventListener('click', e=>{
+  const { sx, sy } = canvasCoords(e.clientX, e.clientY);
+  const g=screenToGrid(sx,sy);
+  placeTower(g.col, g.row);
+});
+
+canvas.addEventListener('contextmenu', e=>{ e.preventDefault(); state.placing=null; renderTowerPanel(); });
+document.getElementById('wave-btn').addEventListener('click', sendWave);
+document.getElementById('speed-btn').addEventListener('click', ()=>{
+  speedMult=speedMult===1?2:1;
+  document.getElementById('speed-btn').textContent=speedMult===1?'2× SPEED':'1× SPEED';
+});
+
+// ── UTILS ─────────────────────────────────────────────────────────
+function darken(hex, amount) {
+  const n=parseInt(hex.replace('#',''),16);
+  const r=Math.max(0,(n>>16)-amount);
+  const g=Math.max(0,((n>>8)&0xff)-amount);
+  const b=Math.max(0,(n&0xff)-amount);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────
+state = makeState();
+initTheme();
+updateHUD();
+requestAnimationFrame(ts=>{ lastTime=ts; requestAnimationFrame(gameLoop); });
+fitLayout();
+scheduleFitLayout();
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => scheduleFitLayout());
+}
+if (typeof ResizeObserver !== 'undefined') {
+  const _w = document.getElementById('wrapper');
+  if (_w) new ResizeObserver(() => scheduleFitLayout()).observe(_w);
+}
+</script>
+</body>
+</html>
